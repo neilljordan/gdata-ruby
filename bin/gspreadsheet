@@ -12,7 +12,9 @@ end
 
 formula = ARGV.first or 'sin(0.2)'
   
-gs = GData::Spreadsheet.new('pSYwzniwpzSFfn0KFRg9oWA')
+
+  
+gs = GData::Spreadsheet.new('pa49_mRF3mXRaY9MhgnebTA')
 gs.authenticate(ENV['GDATA_USER'], ENV['GDATA_PASS'])
-gs.add_to_cell formula
-puts gs.evaluate_cell('A1')
+# gs.worksheet_id = 1
+gs.add("blah", :to => "R1C1", :formula => false)
