@@ -17,6 +17,10 @@ module GData
       doc = Hpricot(request(path))
       result = (doc/"content[@type='text']").inner_html
     end
+    
+    #TO DO
+    def find_sheet_by_name
+    end
 
     def save_entry(entry)
       path = "/feeds/cells/#{@spreadsheet_id}/#{@worksheet_id}/#{@headers ? 'private' : 'public'}/full"
