@@ -14,7 +14,7 @@ end
 gs = GData::Spreadsheet.new('pa49_mRF3mXRaY9MhgnebTA')
 gs.authenticate(ENV['GDATA_USER'], ENV['GDATA_PASS'])
 
-w_id = gs.find_sheet_by_name('blah')
+w_id = gs.get_worksheet_id_of('blah')
 gs.worksheet_id = w_id
 
 cell = "R1C1"
