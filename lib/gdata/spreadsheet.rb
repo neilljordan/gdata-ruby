@@ -13,13 +13,19 @@ module GData
 
     def evaluate_cell(cell)
       path = "/feeds/cells/#{@spreadsheet_id}/#{@worksheet_id}/#{@headers ? "private" : "public"}/basic/#{cell}"
-      request(path)
       doc = Hpricot(request(path))
       result = (doc/"content[@type='text']").inner_html
     end
     
     #TO DO
-    def find_sheet_by_name
+    def find_sheet_by_name(sheet_title)
+      path = "/feeds/worksheets/#{@spreadsheet_id}/#{@headers ? "private" : "public"}/full"
+      doc = Hpricot(request(path))
+      res1 = (doc/"content[@type='text']")
+      el_idx = 0
+      res1.each_with_index { |el, i| el_idx = i if el.inner_text.eql?(sheet_title) }
+      # el_idx = res1.inject(0) { |i, el| i += 1; el.inner_text.eql?(sheet_title) ? i : nil }
+      (doc/"link[@rel='self'][@href]")[el_idx + 1]['href'][/\/=?(\w+)$/,1]
     end
 
     def save_entry(entry)
