@@ -100,7 +100,9 @@ module GData
       x.entry 'xmlns' => 'http://www.w3.org/2005/Atom' do
         x.title title, 'type' => 'text'
         x.content 'type' => 'xhtml' do
-          x.div body, 'xmlns' => 'http://www.w3.org/1999/xhtml'
+          x.div 'xmlns' => 'http://www.w3.org/1999/xhtml' do
+            x << body
+          end
         end
       end
       
