@@ -10,9 +10,14 @@ unless ENV['GDATA_USER'] and ENV['GDATA_PASS']
   exit
 end
 
-formula = ARGV.first or 'sin(0.2)'
   
-gs = GData::Spreadsheet.new('pSYwzniwpzSFfn0KFRg9oWA')
+gs = GData::Spreadsheet.new('pa49_mRF3mXRaY9MhgnebTA')
 gs.authenticate(ENV['GDATA_USER'], ENV['GDATA_PASS'])
-gs.add_to_cell formula
-puts gs.evaluate_cell('A1')
+
+w_id = gs.get_worksheet_id_of('blah')
+gs.worksheet_id = w_id
+
+cell = "R1C1"
+gs.add("test", :to => cell, :formula => false)
+puts gs.evaluate_cell(cell)
+
