@@ -1,4 +1,4 @@
-# Extension class into Ruby GData library for use Google Webmaster Tools.
+# Ex    tension class into Ruby GData library for use Google Webmaster Tools.
 #
 # == Overview
 #
@@ -11,14 +11,19 @@
 require 'cgi'
 require 'date'
 require 'rexml/document'
+require File.dirname(__FILE__) + '/base'
 
 module GData #:nodoc:
   
   class WebmasterToolsError < StandardError; end #:nodoc:
   
-  class WebmasterTools < GData::Client
+  class WebmasterTools < GData::Base
     
-    FEED_URL = '/webmasters/tools/feeds/sites/'
+    BASE_URL = '/webmasters/tools/feeds'
+    FEED_URL = BASE_URL + '/sites/'
+    KEYWORDS_URL = BASE_URL + "/%s/keywords/"
+    CRAWL_ISSUES_URL = BASE_URL + "/%s/crawlissues/"
+
     
     def initialize
       super('sitemaps', 'gdata-ruby', 'www.google.com')
@@ -40,6 +45,7 @@ module GData #:nodoc:
 
         site_data = Array.new
         REXML::Document.new(data).root.elements.each('entry') do |e|
+          # puts e
           site_data << parse_site_entry(e)
         end
         site_data
@@ -60,8 +66,10 @@ module GData #:nodoc:
     # Returned hash contains site data parsed with parse_site_entry method.
     def site(site_id)
       if authenticated?
-        response, data = get site_feed(site_id)
-        entry = REXML::Document.new(data).root.elements['entry']
+        response, data = get(site_feed(site_id))
+        # puts data
+        # entry = REXML::Document.new(data).root.elements['entry']
+        entry = REXML::Document.new(data).root
         parse_site_entry(entry)
       else
         raise NotAuthenticatedError
@@ -148,11 +156,67 @@ module GData #:nodoc:
       end
     end
     
+    # Get keywords feed for selected site under account.
+    #
+    # == Example
+    #
+    #   wt = GData::WebmasterTools.new
+    #   wt.authenticate('username@gmail.com', 'password')
+    #   wt.keywords('http://www.mysite.com')
+    #   => [{:keyword => ..., :source => ...}, ...]
+    #
+    # Returned hash contains keyword data parsed with parse_keyword_entry method.
+    def keywords(site_id)
+      if authenticated?
+        response, data = get(keywords_feed(site_id))
+
+        keywords = Array.new
+        REXML::Document.new(data).root.elements.each('wt:keyword') do |e|
+          keywords << {
+            :keyword => e.get_text.to_s,
+            :source => e.attributes['source']
+          }
+        end
+        keywords
+      else
+        raise NotAuthenticatedError
+      end
+    end
+    
+    # Get feed of crawl issues for a site
+    #
+    # == Example
+    #
+    #   wt = GData::WebmasterTools.new
+    #   wt.authenticate('username@gmail.com', 'password')
+    #   wt.crawl_issues('http://www.example.com')
+    #
+    # Each element in returned array contains hash with crawl issue data.
+    def crawl_issues(site_id)
+      if authenticated?
+        response, data = get(CRAWL_ISSUES_URL % [CGI::escape(site_id)])
+
+        crawl_issues = Array.new
+        REXML::Document.new(data).root.elements.each('entry') do |e|
+          # puts e
+          crawl_issues << element_to_hash(e)
+        end
+        crawl_issues
+      else
+        raise NotAuthenticatedError
+      end
+    end
+    
     private
     
       # Private helper method to compose site feed based on site id.
       def site_feed(site_id)
         FEED_URL + CGI::escape(site_id || '')
+      end
+
+      # Private helper method to compose keywords feed based on site id.
+      def keywords_feed(site_id)
+        KEYWORDS_URL % [CGI::escape(site_id || '')]
       end
       
       # Parses site entry into hash from feed partial.
@@ -167,22 +231,40 @@ module GData #:nodoc:
       #   }
       #
       def parse_site_entry(elem)
-        vm = Hash.new
+        entry = element_to_hash elem
+        
+        entry[:verification_methods] = {}
         elem.elements.each('wt:verification-method') do |m|
-          vm[m.attributes['type'].to_sym] = CGI::unescapeHTML(m.get_text.to_s.gsub("\\", ""))
+          entry[:verification_methods][m.attributes['type'].to_sym] = CGI::unescapeHTML(m.get_text.to_s.gsub("\\", ""))
         end
-        
-        crawled = DateTime.parse(elem.elements['wt:crawled'].get_text.to_s) unless elem.elements['wt:crawled'].nil?
-        
-        {
-          :id => elem.elements['id'].get_text.to_s,
-          :title => elem.elements['title'].get_text.to_s,
-          :updated => DateTime.parse(elem.elements['updated'].get_text.to_s),
-          :indexed => elem.elements['wt:indexed'].get_text.to_s == 'true',
-          :crawled => crawled,
-          :verified => elem.elements['wt:verified'].get_text.to_s == 'true',
-          :verification_methods => vm
-        }
+
+        entry
+      end
+      
+      def element_to_hash parent
+        hash = {}
+        (parent.elements.to_a + parent.attributes.to_a).each do |element|
+          key = element.name.gsub(/^.*:/i, '').gsub(/[^a-z0-9]+/i, '_').to_sym
+          
+          if element.kind_of? REXML::Element
+            # || element.has_attributes?
+            value = element.has_elements? ? element_to_hash(element) : element.get_text.to_s
+          else
+            value = element.to_s
+          end
+          
+          unless value.empty?
+            if hash[key]
+              hash[key] = [hash[key]] unless hash[key].respond_to?(:push)
+              hash[key].push value
+            else
+              value = value == 'true' if (value == 'true' || value == 'false')
+              hash[key] = value
+            end
+          end
+        end
+        # hash[:value] = parent.get_text if parent.has_text?
+        hash
       end
   end
 end

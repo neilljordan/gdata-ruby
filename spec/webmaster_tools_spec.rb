@@ -1,9 +1,9 @@
 require File.dirname(__FILE__) + '/spec_helper'
-require File.dirname(__FILE__) + '/../lib/gdata'
-require File.dirname(__FILE__) + '/../lib/gdata/client'
+# require File.dirname(__FILE__) + '/../lib/gdata/gdata'
+# require File.dirname(__FILE__) + '/../lib/gdata/client'
 require File.dirname(__FILE__) + '/../lib/gdata/webmaster_tools'
 
-context GData::WebmasterTools do
+describe GData::WebmasterTools do
   describe 'sites' do
     before(:each) do
       xml = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/sites.xml')
@@ -19,7 +19,7 @@ context GData::WebmasterTools do
       
       site1 = data[0]
       site2 = data[1]
-      
+
       site1[:title].should eql('http://www.mysite.com/')
       site1[:id].should eql('http://www.google.com/webmasters/tools/feeds/sites/http%3A%2F%2Fwww.mysite.com%2F')
       site1[:verification_methods][:metatag].should eql('<meta name="verify-v1" content="nVryYYKT4lSCwaZ/avK1utx6/gtm78x9latRJPCdCuk=" >')
@@ -102,4 +102,27 @@ context GData::WebmasterTools do
   describe 'delete_site' do
     it 'should raise WebmasterToolsError when site is not found or is missing'
   end
+  
+  describe 'keywords' do
+    before(:each) do
+      xml = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/keywords.xml')
+      
+      @wt = GData::WebmasterTools.new
+      @wt.should_receive(:get).and_return([nil, xml])
+      @wt.should_receive(:authenticated?).and_return(true)
+    end
+    
+    it 'should parse all keywords from keyword feed for site' do
+      keywords = @wt.keywords('http://www.mysite.com')
+      
+      keywords.length.should eql(4)
+      
+      # data[:title].should eql('http://www.mysite.com/')
+      # data[:id].should eql('http://www.google.com/webmasters/tools/feeds/sites/http%3A%2F%2Fwww.mysite.com%2F')
+      # data[:verification_methods][:metatag].should eql('<meta name="verify-v1" content="nVryYYKT4lSCwaZ/avK1utx6/gtm78x9latRJPCdCuk=" >')
+      # data[:verification_methods][:htmlpage].should eql('google937559d39027a39d.html')
+      # data[:verified].should be_false
+    end
+  end
+  
 end
