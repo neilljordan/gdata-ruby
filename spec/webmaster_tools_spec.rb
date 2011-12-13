@@ -125,21 +125,23 @@ describe GData::WebmasterTools do
 
   describe 'crawl issues' do
     before(:each) do
-      xml = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/crawl_errors.xml')
+      xml_page_1 = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/crawl_errors_page_1.xml')
+      xml_page_2 = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/crawl_errors_page_2.xml')
 
       @wt = GData::WebmasterTools.new
-      @wt.should_receive(:get).and_return([nil, xml])
+      @wt.should_receive(:get).and_return([nil, xml_page_1], [nil, xml_page_2])
       @wt.should_receive(:authenticated?).and_return(true)
     end
 
     it 'should parse all crawl issues, and query for next page of results.' do
       crawl_errors = @wt.crawl_issues('http://www.site.com')
-      crawl_errors.length.should eql(1)
+      crawl_errors.length.should eql(2)
 
       crawl_error = crawl_errors.first
       crawl_error.length.should eql(9)
 
-      
+      crawl_error = crawl_errors.last
+      crawl_error.length.should eql(9)
     end
   end
 end
