@@ -4,7 +4,7 @@ require File.dirname(__FILE__) + '/../lib/gdata/webmaster_tools'
 describe GData::WebmasterTools do
   describe 'sites' do
     before(:each) do
-      xml = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/sites.xml')
+      xml = fixture_xml('/fixtures/webmaster_tools/sites.xml')
 
       @wt = GData::WebmasterTools.new
       @wt.should_receive(:get).with('/webmasters/tools/feeds/sites/').and_return([nil, xml])
@@ -32,7 +32,7 @@ describe GData::WebmasterTools do
 
   describe 'site' do
     before(:each) do
-      xml = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/site.xml')
+      xml = fixture_xml('/fixtures/webmaster_tools/site.xml')
 
       @wt = GData::WebmasterTools.new
       @wt.should_receive(:get).and_return([nil, xml])
@@ -52,7 +52,7 @@ describe GData::WebmasterTools do
 
   describe 'add_site' do
     before(:each) do
-      xml = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/add_site.xml')
+      xml = fixture_xml('/fixtures/webmaster_tools/add_site.xml')
 
       @wt = GData::WebmasterTools.new
       @wt.should_receive(:post).and_return([Net::HTTPCreated.new(nil, nil, nil), xml])
@@ -71,8 +71,7 @@ describe GData::WebmasterTools do
 
   describe 'verify_site' do
     before(:each) do
-      @xml = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/verify_site.xml')
-
+      @xml = fixture_xml('/fixtures/webmaster_tools/verify_site.xml')
       @wt = GData::WebmasterTools.new
     end
 
@@ -103,7 +102,7 @@ describe GData::WebmasterTools do
 
   describe 'keywords' do
     before(:each) do
-      xml = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/keywords.xml')
+      xml = fixture_xml('/fixtures/webmaster_tools/keywords.xml')
 
       @wt = GData::WebmasterTools.new
       @wt.should_receive(:get).and_return([nil, xml])
@@ -125,8 +124,8 @@ describe GData::WebmasterTools do
 
   describe 'crawl issues' do
     before(:each) do
-      xml_page_1 = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/crawl_errors_page_1.xml')
-      xml_page_2 = File.read(File.dirname(__FILE__) + '/fixtures/webmaster_tools/crawl_errors_page_2.xml')
+      xml_page_1 = fixture_xml('/fixtures/webmaster_tools/crawl_errors_page_1.xml')
+      xml_page_2 = fixture_xml('/fixtures/webmaster_tools/crawl_errors_page_2.xml')
 
       @wt = GData::WebmasterTools.new
       @wt.should_receive(:get).and_return([nil, xml_page_1], [nil, xml_page_2])
@@ -137,11 +136,13 @@ describe GData::WebmasterTools do
       crawl_errors = @wt.crawl_issues('http://www.site.com')
       crawl_errors.length.should eql(2)
 
-      crawl_error = crawl_errors.first
-      crawl_error.length.should eql(9)
-
-      crawl_error = crawl_errors.last
-      crawl_error.length.should eql(9)
+      crawl_errors.each do |crawl_error|
+        crawl_error.length.should eql(9)
+      end
     end
+  end
+
+  def fixture_xml(path)
+    File.read(File.dirname(__FILE__) + path)
   end
 end
