@@ -14,21 +14,21 @@ require 'rexml/document'
 require File.dirname(__FILE__) + '/base'
 
 module GData #:nodoc:
-  
+
   class WebmasterToolsError < StandardError; end #:nodoc:
-  
+
   class WebmasterTools < GData::Base
-    
+
     BASE_URL = '/webmasters/tools/feeds'
     FEED_URL = BASE_URL + '/sites/'
     KEYWORDS_URL = BASE_URL + "/%s/keywords/"
     CRAWL_ISSUES_URL = BASE_URL + "/%s/crawlissues/"
 
-    
+
     def initialize
       super('sitemaps', 'gdata-ruby', 'www.google.com')
     end
-    
+
     # Get feed for all sites associated with authenticated user and parse all data into hash.
     #
     # == Example
@@ -53,7 +53,7 @@ module GData #:nodoc:
         raise NotAuthenticatedError
       end
     end
-    
+
     # Get feed for selected site under account.
     #
     # == Example
@@ -75,7 +75,7 @@ module GData #:nodoc:
         raise NotAuthenticatedError
       end
     end
-    
+
     # Add new site to account. Returns hash for created site.
     #
     # == Example
@@ -90,7 +90,7 @@ module GData #:nodoc:
       if authenticated?
         content = '<entry xmlns="http://www.w3.org/2005/Atom"><content src="' + url +'" /></entry>'
         response, data = post(FEED_URL, content)
-        
+
         case response
         when Net::HTTPCreated
           entry = REXML::Document.new(data).root
@@ -104,12 +104,12 @@ module GData #:nodoc:
         raise NotAuthenticatedError
       end
     end
-    
+
     # Remove site from account.
     def delete_site(site_id)
       if authenticated?
         response, data = delete site_feed(site_id)
-        
+
         case response
         when Net::HTTPOK
           return true
@@ -120,7 +120,7 @@ module GData #:nodoc:
         raise NotAuthenticatedError
       end
     end
-    
+
     # Initiates site ownership verification process in Webmaster Tools account.
     #
     # == Usage
@@ -128,19 +128,19 @@ module GData #:nodoc:
     # Method can be only 'htmlpage' or 'metatag', otherwise this method will raise WebmasterToolsError.
     def verify_site(site_id, method)
       raise WebmasterToolsError unless ['htmlpage', 'metatag'].include?(method)
-      
+
       if authenticated?
         content = '<entry xmlns="http://www.w3.org/2005/Atom" xmlns:wt="http://schemas.google.com/webmasters/tools/2007">'
         content << '<id>' + site_id + '</id><category scheme="http://schemas.google.com/g/2005#kind" term="http://schemas.google.com/webmasters/tools/2007#site-info"/>'
         content << '<wt:verification-method type="' + method + '" in-use="true"/>'
         content << '</entry>'
         response, data = put(site_feed(site_id), content)
-        
+
         case response
         when Net::HTTPOK
           entry = REXML::Document.new(data).root
           data = parse_site_entry(entry)
-          
+
           if data[:verified] and data[:title] == site_id
             return true
           else
@@ -155,7 +155,7 @@ module GData #:nodoc:
         raise NotAuthenticatedError
       end
     end
-    
+
     # Get keywords feed for selected site under account.
     #
     # == Example
@@ -182,7 +182,7 @@ module GData #:nodoc:
         raise NotAuthenticatedError
       end
     end
-    
+
     # Get feed of crawl issues for a site
     #
     # == Example
@@ -194,77 +194,87 @@ module GData #:nodoc:
     # Each element in returned array contains hash with crawl issue data.
     def crawl_issues(site_id)
       if authenticated?
-        response, data = get(CRAWL_ISSUES_URL % [CGI::escape(site_id)])
-
-        crawl_issues = Array.new
-        REXML::Document.new(data).root.elements.each('entry') do |e|
-          # puts e
-          crawl_issues << element_to_hash(e)
-        end
-        crawl_issues
+        crawl_issues_for_url(CRAWL_ISSUES_URL % [CGI::escape(site_id)]).flatten
       else
         raise NotAuthenticatedError
       end
     end
-    
+
     private
-    
-      # Private helper method to compose site feed based on site id.
-      def site_feed(site_id)
-        FEED_URL + CGI::escape(site_id || '')
+
+    def crawl_issues_for_url(url)
+      response, data = get(url)
+
+      crawl_issues = Array.new
+      REXML::Document.new(data).root.elements.each('entry') do |e|
+        crawl_issues << element_to_hash(e)
       end
 
-      # Private helper method to compose keywords feed based on site id.
-      def keywords_feed(site_id)
-        KEYWORDS_URL % [CGI::escape(site_id || '')]
+      # get next page of results
+      REXML::Document.new(data).root.elements.each('link') do |l|
+        link = element_to_hash(l)
+        crawl_issues << crawl_issues_for_url(link[:href]) if link[:rel] == 'next'
       end
-      
-      # Parses site entry into hash from feed partial.
-      #
-      # == Site data hash format
-      #
-      #   {
-      #     :id => 'http://www.google.com/webmasters/tools/feeds/sites/http%3A%2F%2Fwww.mysite.com%2F',
-      #     :title => 'http://www.mysite.com', :updated => DateTime..., :indexed => true, :verified => true,
-      #     :crawled => DateTime...,
-      #     :verification_methods => {:metatag => '<meta ...>', :htmlpage => 'google....html'}
-      #   }
-      #
-      def parse_site_entry(elem)
-        entry = element_to_hash elem
-        
-        entry[:verification_methods] = {}
-        elem.elements.each('wt:verification-method') do |m|
-          entry[:verification_methods][m.attributes['type'].to_sym] = CGI::unescapeHTML(m.get_text.to_s.gsub("\\", ""))
+
+      crawl_issues
+    end
+
+    # Private helper method to compose site feed based on site id.
+    def site_feed(site_id)
+      FEED_URL + CGI::escape(site_id || '')
+    end
+
+    # Private helper method to compose keywords feed based on site id.
+    def keywords_feed(site_id)
+      KEYWORDS_URL % [CGI::escape(site_id || '')]
+    end
+
+    # Parses site entry into hash from feed partial.
+    #
+    # == Site data hash format
+    #
+    #   {
+    #     :id => 'http://www.google.com/webmasters/tools/feeds/sites/http%3A%2F%2Fwww.mysite.com%2F',
+    #     :title => 'http://www.mysite.com', :updated => DateTime..., :indexed => true, :verified => true,
+    #     :crawled => DateTime...,
+    #     :verification_methods => {:metatag => '<meta ...>', :htmlpage => 'google....html'}
+    #   }
+    #
+    def parse_site_entry(elem)
+      entry = element_to_hash elem
+
+      entry[:verification_methods] = {}
+      elem.elements.each('wt:verification-method') do |m|
+        entry[:verification_methods][m.attributes['type'].to_sym] = CGI::unescapeHTML(m.get_text.to_s.gsub("\\", ""))
+      end
+
+      entry
+    end
+
+    def element_to_hash parent
+      hash = {}
+      (parent.elements.to_a + parent.attributes.to_a).each do |element|
+        key = element.name.gsub(/^.*:/i, '').gsub(/[^a-z0-9]+/i, '_').to_sym
+
+        if element.kind_of? REXML::Element
+          # || element.has_attributes?
+          value = element.has_elements? ? element_to_hash(element) : element.get_text.to_s
+        else
+          value = element.to_s
         end
 
-        entry
-      end
-      
-      def element_to_hash parent
-        hash = {}
-        (parent.elements.to_a + parent.attributes.to_a).each do |element|
-          key = element.name.gsub(/^.*:/i, '').gsub(/[^a-z0-9]+/i, '_').to_sym
-          
-          if element.kind_of? REXML::Element
-            # || element.has_attributes?
-            value = element.has_elements? ? element_to_hash(element) : element.get_text.to_s
+        unless value.empty?
+          if hash[key]
+            hash[key] = [hash[key]] unless hash[key].respond_to?(:push)
+            hash[key].push value
           else
-            value = element.to_s
-          end
-          
-          unless value.empty?
-            if hash[key]
-              hash[key] = [hash[key]] unless hash[key].respond_to?(:push)
-              hash[key].push value
-            else
-              value = value == 'true' if (value == 'true' || value == 'false')
-              hash[key] = value
-            end
+            value = value == 'true' if (value == 'true' || value == 'false')
+            hash[key] = value
           end
         end
-        # hash[:value] = parent.get_text if parent.has_text?
-        hash
       end
+      # hash[:value] = parent.get_text if parent.has_text?
+      hash
+    end
   end
 end
